@@ -91,6 +91,7 @@ Example gallery:
 | Resize | Tray → **Increase Size** / **Decrease Size** |
 | Click-through | Tray → **Toggle Click Through** |
 | Always on top | Tray → **Toggle Always On Top** |
+| Reset counter | Right click → Reset |
 | Exit | Tray → **Exit** |
 
 ### Keyboard layout
