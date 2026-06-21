@@ -120,8 +120,14 @@ public partial class MainWindow : Window
         _inputHookService.MouseUp += OnGlobalMouseUp;
         _inputHookService.InputCounted += OnInputCounted;
 
+        // Ensure WPF-level flag and extended styles hide from taskbar
+        ShowInTaskbar = false;
+
         SourceInitialized += (_, _) => ApplyExtendedWindowStyles();
         LocationChanged += (_, _) => PersistWindowPosition();
+        Loaded += (_, _) => {
+            try { EnsureOnScreen(); } catch { }
+        };
         Closing += (_, _) => SaveSettings();
     }
 
@@ -129,6 +135,26 @@ public partial class MainWindow : Window
     {
         _isShuttingDown = true;
         Close();
+    }
+
+    /// <summary>
+    /// Ensure the overlay is on-screen (move to primary center if needed).
+    /// Public so external callers (tray) can force the window into view.
+    /// </summary>
+    public void EnsureOnScreen()
+    {
+        var screenWidth = SystemParameters.VirtualScreenWidth;
+        var screenHeight = SystemParameters.VirtualScreenHeight;
+
+        // If the window would be outside the visible area, center it.
+        if (Left < -Width || Top < -Height || Left > screenWidth || Top > screenHeight)
+        {
+            Left = (screenWidth - Width) / 2.0;
+            Top = (screenHeight - Height) / 2.0;
+            _settings.WindowX = Left;
+            _settings.WindowY = Top;
+            _settingsService.Save(_settings);
+        }
     }
 
     public void IncreaseScale()
@@ -248,7 +274,9 @@ public partial class MainWindow : Window
         }
 
         var style = NativeMethods.GetWindowLong(handle, NativeMethods.GwlExstyle);
+        // Ensure layered and toolwindow styles are set, and appwindow is cleared
         style |= NativeMethods.WsExLayered | NativeMethods.WsExToolwindow;
+        style &= ~NativeMethods.WsExAppwindow;
 
         if (_settings.ClickThrough)
         {

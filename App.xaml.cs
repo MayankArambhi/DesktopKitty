@@ -46,6 +46,14 @@ public partial class App : System.Windows.Application
         if (_settings.IsVisible)
         {
             _mainWindow.Show();
+            try
+            {
+                _mainWindow.EnsureOnScreen();
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 

@@ -27,6 +27,7 @@ internal static class NativeMethods
     internal const int WsExLayered = 0x00080000;
     internal const int WsExTransparent = 0x00000020;
     internal const int WsExToolwindow = 0x00000080;
+    internal const int WsExAppwindow = 0x00040000;
 
     internal delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 

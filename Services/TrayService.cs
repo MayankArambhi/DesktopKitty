@@ -107,8 +107,18 @@ public sealed class TrayService : IDisposable
         }
         else
         {
-            _mainWindow.Show();
-            _mainWindow.Activate();
+                // Ensure the overlay is on-screen before showing it.
+                try
+                {
+                    _mainWindow.EnsureOnScreen();
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                _mainWindow.Show();
+                _mainWindow.Activate();
             _settings.IsVisible = true;
             showHideItem.Text = "Hide";
         }
