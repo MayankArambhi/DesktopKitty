@@ -30,18 +30,72 @@ public sealed class SettingsService
     {
         try
         {
+            AppSettings settings;
+
             if (!File.Exists(_settingsPath))
             {
-                return new AppSettings();
+                settings = new AppSettings();
+            }
+            else
+            {
+                var json = File.ReadAllText(_settingsPath);
+                settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             }
 
-            var json = File.ReadAllText(_settingsPath);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            if (EnsureDefaults(settings))
+            {
+                Save(settings);
+            }
+            else if (MigrateLegacyCounters(settings))
+            {
+                Save(settings);
+            }
+
+            if (StatisticsCalculator.EnsureTodayCurrent(settings))
+            {
+                Save(settings);
+            }
+
+            return settings;
         }
         catch
         {
-            return new AppSettings();
+            var settings = new AppSettings();
+            EnsureDefaults(settings);
+            Save(settings);
+            return settings;
         }
+    }
+
+    private static bool EnsureDefaults(AppSettings settings)
+    {
+        if (settings.InstallDate != default)
+        {
+            return false;
+        }
+
+        settings.InstallDate = DateTime.UtcNow;
+        return true;
+    }
+
+    private static bool MigrateLegacyCounters(AppSettings settings)
+    {
+        var changed = false;
+
+        if (settings.TodayDate == default)
+        {
+            settings.TodayDate = DateTime.UtcNow.Date;
+            changed = true;
+        }
+
+        var tracked = settings.KeyboardClickCount + settings.MouseClickCount;
+        if (settings.ClickCount > tracked)
+        {
+            settings.KeyboardClickCount += settings.ClickCount - tracked;
+            changed = true;
+        }
+
+        return changed;
     }
 
     public void Save(AppSettings settings)

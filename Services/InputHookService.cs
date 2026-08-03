@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using TinyBongo.Models;
 
 namespace TinyBongo.Services;
 
@@ -25,7 +26,7 @@ public sealed class InputHookService : IDisposable
     public event Action? MouseUp;
     /// <summary>Raised when a valid input (new key press or new mouse button press) is counted.
     /// Use this to increment global input counters without double-counting repeats.</summary>
-    public event Action? InputCounted;
+    public event Action<InputSource>? InputCounted;
 
     // Track pressed keys & mouse buttons locally to detect transitions and avoid counting repeats.
     private readonly HashSet<int> _pressedKeys = new();
@@ -70,7 +71,7 @@ public sealed class InputHookService : IDisposable
                     // Count only when transitioning from released -> pressed (avoid repeats)
                     if (_pressedKeys.Add(vk))
                     {
-                        InputCounted?.Invoke();
+                        InputCounted?.Invoke(InputSource.Keyboard);
                     }
                 }
                 else if (message is NativeMethods.WmKeyup or NativeMethods.WmSyskeyup)
@@ -101,7 +102,7 @@ public sealed class InputHookService : IDisposable
                 if (message is NativeMethods.WmLbuttondown)
                 {
                     MouseDown?.Invoke();
-                    if (_pressedMouseButtons.Add(1)) InputCounted?.Invoke();
+                    if (_pressedMouseButtons.Add(1)) InputCounted?.Invoke(InputSource.Mouse);
                 }
                 else if (message is NativeMethods.WmLbuttonup)
                 {
@@ -111,7 +112,7 @@ public sealed class InputHookService : IDisposable
                 else if (message is NativeMethods.WmRbuttondown)
                 {
                     MouseDown?.Invoke();
-                    if (_pressedMouseButtons.Add(2)) InputCounted?.Invoke();
+                    if (_pressedMouseButtons.Add(2)) InputCounted?.Invoke(InputSource.Mouse);
                 }
                 else if (message is NativeMethods.WmRbuttonup)
                 {
@@ -121,7 +122,7 @@ public sealed class InputHookService : IDisposable
                 else if (message is NativeMethods.WmMbuttondown)
                 {
                     MouseDown?.Invoke();
-                    if (_pressedMouseButtons.Add(3)) InputCounted?.Invoke();
+                    if (_pressedMouseButtons.Add(3)) InputCounted?.Invoke(InputSource.Mouse);
                 }
                 else if (message is NativeMethods.WmMbuttonup)
                 {
@@ -134,7 +135,7 @@ public sealed class InputHookService : IDisposable
                     // high word of mouseData indicates X button: 1 or 2
                     var xButton = (int)((hookStruct.MouseData >> 16) & 0xFFFF);
                     var id = xButton == 1 ? 4 : 5;
-                    if (_pressedMouseButtons.Add(id)) InputCounted?.Invoke();
+                    if (_pressedMouseButtons.Add(id)) InputCounted?.Invoke(InputSource.Mouse);
                 }
                 else if (message is NativeMethods.WmXbuttonup)
                 {

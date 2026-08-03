@@ -9,6 +9,7 @@ public partial class App : System.Windows.Application
     private InputHookService? _inputHookService;
     private TrayService? _trayService;
     private SettingsService? _settingsService;
+    private StartupService? _startupService;
     private AppSettings? _settings;
     private MainWindow? _mainWindow;
 
@@ -21,9 +22,13 @@ public partial class App : System.Windows.Application
 
         _settingsService = new SettingsService();
         _settings = _settingsService.Load();
+        _startupService = new StartupService();
         _inputHookService = new InputHookService();
 
-        _mainWindow = new MainWindow(_settings, _settingsService, _inputHookService);
+        // Sync startup registry with persisted preference.
+        _startupService.SetEnabled(_settings.StartWithWindows);
+
+        _mainWindow = new MainWindow(_settings, _settingsService, _inputHookService, _startupService);
         _trayService = new TrayService(_mainWindow, _settingsService, _settings);
 
         _mainWindow.Closed += OnMainWindowClosed;

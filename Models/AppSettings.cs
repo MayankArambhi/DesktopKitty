@@ -11,5 +11,14 @@ public sealed class AppSettings
     public bool ClickThrough { get; set; }
     public bool AlwaysOnTop { get; set; } = true;
     public bool IsVisible { get; set; } = true;
+    public bool ShowCounter { get; set; } = true;
+    public bool StartWithWindows { get; set; }
+    public DateTime InstallDate { get; set; }
+
+    public long totalActiveHours { get; set; }
     public long ClickCount { get; set; }
+    public long KeyboardClickCount { get; set; }
+    public long MouseClickCount { get; set; }
+    public long TodayClicks { get; set; }
+    public DateTime TodayDate { get; set; }
 }

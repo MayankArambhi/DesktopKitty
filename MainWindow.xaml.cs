@@ -1,13 +1,12 @@
 ﻿using System.IO;
 using System.Windows;
 using System.Linq;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 using TinyBongo.Models;
 using TinyBongo.Services;
-using System.IO;
 
 namespace TinyBongo;
 
@@ -37,8 +36,8 @@ public partial class MainWindow : Window
     private const int BaseWidth = 256;
     private const int BaseHeight = 256;
     // No fixed timers for keyboard input — state is driven by key/mouse events.
-    private const double MinScale = 0.5;
-    private const double MaxScale = 3.0;
+    private const double MinScale = 0.2;
+    private const double MaxScale = 2.5;
     private const double ScaleStep = 0.1;
 
     // Comprehensive keyboard mapping per design requirements.
@@ -88,6 +87,7 @@ public partial class MainWindow : Window
     private readonly AppSettings _settings;
     private readonly SettingsService _settingsService;
     private readonly InputHookService _inputHookService;
+    private readonly StartupService _startupService;
     private readonly Dictionary<CatState, BitmapImage> _sprites = new();
 
     // Runtime input state
@@ -95,20 +95,27 @@ public partial class MainWindow : Window
     private bool _mouseDown;
     private CatState _currentState = CatState.Idle;
     private long _clickCount;
+    private long _sessionClickCount;
+    private readonly DateTime _sessionStartUtc = DateTime.UtcNow;
     private bool _isShuttingDown;
+    private StatisticsWindow? _statisticsWindow;
 
-    public MainWindow(AppSettings settings, SettingsService settingsService, InputHookService inputHookService)
+    public event Action? ClickCountChanged;
+
+    public MainWindow(AppSettings settings, SettingsService settingsService, InputHookService inputHookService, StartupService startupService)
     {
         InitializeComponent();
 
         _settings = settings;
         _settingsService = settingsService;
         _inputHookService = inputHookService;
+        _startupService = startupService;
 
         // No timers for keyboard state; input is entirely event-driven.
 
         LoadSprites();
         ApplySettings();
+        SyncContextMenuState();
 
         // Initialize click counter from settings and subscribe to counted events.
         _clickCount = _settings.ClickCount;
@@ -159,12 +166,17 @@ public partial class MainWindow : Window
 
     public void IncreaseScale()
     {
-        ApplyScale(Math.Min(_settings.Scale + ScaleStep, MaxScale));
+        SetScale(_settings.Scale + ScaleStep);
     }
 
     public void DecreaseScale()
     {
-        ApplyScale(Math.Max(_settings.Scale - ScaleStep, MinScale));
+        SetScale(_settings.Scale - ScaleStep);
+    }
+
+    public void SetScale(double scale)
+    {
+        ApplyScale(Math.Clamp(scale, MinScale, MaxScale));
     }
 
     public void ToggleClickThrough()
@@ -179,6 +191,62 @@ public partial class MainWindow : Window
         _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
         Topmost = _settings.AlwaysOnTop;
         _settingsService.Save(_settings);
+    }
+
+    public void ToggleCounterVisibility()
+    {
+        _settings.ShowCounter = !_settings.ShowCounter;
+        ApplyCounterVisibility();
+        SyncContextMenuState();
+        _settingsService.Save(_settings);
+    }
+
+    public void ResetCounter()
+    {
+        _clickCount = 0;
+        _sessionClickCount = 0;
+        _settings.ClickCount = 0;
+        _settings.KeyboardClickCount = 0;
+        _settings.MouseClickCount = 0;
+        _settings.TodayClicks = 0;
+        _settings.TodayDate = DateTime.UtcNow.Date;
+        CounterText.Text = "0";
+        _settingsService.Save(_settings);
+        NotifyClickCountChanged();
+    }
+
+    public void ShowStatistics()
+    {
+        if (_statisticsWindow is { IsLoaded: true })
+        {
+            _statisticsWindow.RefreshStatistics();
+            _statisticsWindow.Activate();
+            return;
+        }
+
+        _statisticsWindow = new StatisticsWindow(_settings, GetSessionStats);
+        _statisticsWindow.Closed += (_, _) => _statisticsWindow = null;
+        _statisticsWindow.Show();
+    }
+
+    private SessionStats GetSessionStats() => new()
+    {
+        SessionClicks = _sessionClickCount,
+        SessionStartUtc = _sessionStartUtc
+    };
+
+    public void ToggleStartWithWindows()
+    {
+        _settings.StartWithWindows = !_settings.StartWithWindows;
+        _startupService.SetEnabled(_settings.StartWithWindows);
+        SyncContextMenuState();
+        _settingsService.Save(_settings);
+    }
+
+    public void SyncContextMenuState()
+    {
+        ToggleCounterMenuItem.Header = _settings.ShowCounter ? "Hide Counter" : "Show Counter";
+        StartWithWindowsMenuItem.IsChecked = _settings.StartWithWindows;
     }
 
     private void LoadSprites()
@@ -219,7 +287,7 @@ public partial class MainWindow : Window
 
     private void ApplySettings()
     {
-        ApplyScale(_settings.Scale);
+        ApplyCounterVisibility();
 
         // Ensure the window is positioned on-screen. If stored coordinates are
         // outside the current virtual screen (multiple monitors, resolution change),
@@ -248,6 +316,7 @@ public partial class MainWindow : Window
         }
 
         Topmost = _settings.AlwaysOnTop;
+        SyncContextMenuState();
     }
 
     private const int CounterAreaHeight = 42;
@@ -256,13 +325,16 @@ public partial class MainWindow : Window
     {
         _settings.Scale = scale;
 
-        Width = BaseWidth * scale;
-        Height = (BaseHeight + CounterAreaHeight) * scale;
-
         CatImage.Width = BaseWidth * scale;
         CatImage.Height = BaseHeight * scale;
 
         _settingsService.Save(_settings);
+    }
+
+    private void ApplyCounterVisibility()
+    {
+        CounterBorder.Visibility = _settings.ShowCounter ? Visibility.Visible : Visibility.Collapsed;
+        ApplyScale(_settings.Scale);
     }
 
     private void ApplyExtendedWindowStyles()
@@ -420,24 +492,47 @@ public partial class MainWindow : Window
         SetCatState(CatState.BothPaws);
     }
 
-    private void OnInputCounted()
+    private void OnInputCounted(InputSource source)
     {
         Dispatcher.BeginInvoke(() =>
         {
+            StatisticsCalculator.EnsureTodayCurrent(_settings);
+
             _clickCount++;
+            _sessionClickCount++;
             _settings.ClickCount = _clickCount;
+            _settings.TodayClicks++;
+
+            if (source == InputSource.Keyboard)
+            {
+                _settings.KeyboardClickCount++;
+            }
+            else
+            {
+                _settings.MouseClickCount++;
+            }
+
             CounterText.Text = $"{_clickCount}";
             _settingsService.Save(_settings);
+            NotifyClickCountChanged();
         });
     }
 
-    private void ResetCounter_Click(object sender, RoutedEventArgs e)
+    private void NotifyClickCountChanged()
     {
-        _clickCount = 0;
-        _settings.ClickCount = 0;
-        CounterText.Text = "Clicks: 0";
-        _settingsService.Save(_settings);
+        ClickCountChanged?.Invoke();
+        _statisticsWindow?.RefreshStatistics();
     }
+
+    private void ToggleCounterMenuItem_Click(object sender, RoutedEventArgs e) => ToggleCounterVisibility();
+
+    private void StatisticsMenuItem_Click(object sender, RoutedEventArgs e) => ShowStatistics();
+
+    private void ResetCounter_Click(object sender, RoutedEventArgs e) => ResetCounter();
+
+    private void StartWithWindowsMenuItem_Click(object sender, RoutedEventArgs e) => ToggleStartWithWindows();
+
+    private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => RequestShutdown();
 
     private void SetCatState(CatState state)
     {

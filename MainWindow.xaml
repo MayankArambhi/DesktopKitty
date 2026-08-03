@@ -7,46 +7,70 @@
         Background="Transparent"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
         Topmost="True"
+        MinWidth="220"
+        MinHeight="220"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid ClipToBounds="False">
         <Grid.RowDefinitions>
-            <RowDefinition Height="256*" />
-            <RowDefinition Height="42*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Image x:Name="CatImage"
-           Grid.Row="0"
-           RenderOptions.BitmapScalingMode="HighQuality"
-           SnapsToDevicePixels="True"
-           Stretch="Uniform" />
+        <Border Grid.Row="0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Padding="0"
+                Margin="0"
+                Background="Transparent">
+            <Image x:Name="CatImage"
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   SnapsToDevicePixels="True"
+                   Stretch="Uniform">
+                <Image.ContextMenu>
+                    <ContextMenu FontFamily="Comic Sans MS">
+                        <MenuItem x:Name="ToggleCounterMenuItem"
+                                  Header="Hide Counter"
+                                  Click="ToggleCounterMenuItem_Click" />
+                        <MenuItem Header="Statistics..."
+                                  Click="StatisticsMenuItem_Click" />
+                        <MenuItem Header="Reset Counter"
+                                  Click="ResetCounter_Click" />
+                        <Separator />
+                        <MenuItem x:Name="StartWithWindowsMenuItem"
+                                  Header="Start With Windows"
+                                  IsCheckable="True"
+                                  Click="StartWithWindowsMenuItem_Click" />
+                        <Separator />
+                        <MenuItem Header="Exit"
+                                  Click="ExitMenuItem_Click" />
+                    </ContextMenu>
+                </Image.ContextMenu>
+            </Image>
+        </Border>
 
         <Border x:Name="CounterBorder"
-            Grid.Row="1"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Top"
-            Margin="0,-15,0,0"
-            Background="White"
-            BorderBrush="Black"
-            BorderThickness="2"
-            CornerRadius="12"
-            Padding="10,3"
-            MinHeight="26">
+                Grid.Row="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,-5,0,0"
+                Background="White"
+                BorderBrush="Black"
+                BorderThickness="2"
+                CornerRadius="12"
+                Padding="12,6"
+                MinHeight="30">
             <TextBlock x:Name="CounterText"
-                   Text="0"
-                   FontFamily="Comic Sans MS"
-                   FontWeight="Bold"
-                   FontSize="15"
-                   Foreground="Black"
-                   TextAlignment="Center"
-                   VerticalAlignment="Center"
-                   LineHeight="18"/>
+                       Text="0"
+                       FontFamily="Comic Sans MS"
+                       FontWeight="Bold"
+                       FontSize="15"
+                       Foreground="Black"
+                       TextAlignment="Center"
+                       VerticalAlignment="Center"
+                       LineHeight="18"
+                       TextWrapping="NoWrap" />
         </Border>
     </Grid>
-
-    <Window.ContextMenu>
-        <ContextMenu>
-            <MenuItem Header="Reset Counter" Click="ResetCounter_Click" />
-        </ContextMenu>
-    </Window.ContextMenu>
 </Window>
