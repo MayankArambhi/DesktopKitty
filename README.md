@@ -2,6 +2,8 @@
 
 A lightweight Windows desktop mascot inspired by [Bongo Cat](https://bongo.cat/). Desktop Kitty sits on your desktop as a transparent, always-on-top overlay and reacts to global keyboard and mouse input with minimal CPU and memory usage.
 
+(Includes AI generated code)
+
 ## Features
 
 - **Transparent overlay** — Borderless, draggable window with a transparent background
